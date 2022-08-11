@@ -1,0 +1,13 @@
+.DS_Store
+vue/node_modules
+migrations/
+xunit-reports/
+.coverage
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*__pycache__

@@ -1,0 +1,10 @@
+[MESSAGES CONTROL]
+disable=too-few-public-methods, C0301, C0115, C0116, W0613,
+        W0105, R1732, C0103, W0621, R0801, C0412, C0411, W0614,
+        R1725, W0401, R0902, R0913, W0235, R0201, W0612, R1705,
+        C0209, R0124
+
+[TYPECHECK]
+# pylint cannot deal with classes created at run time.
+# https://stackoverflow.com/a/42814971/5359105
+ignored-classes=SQLAlchemy,scoped_session

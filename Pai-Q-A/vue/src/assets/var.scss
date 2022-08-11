@@ -1,0 +1,16 @@
+/*
+ * @Author: hjj 
+ * @Date: 2021-10-15 19:40:51 
+ * @Last Modified by:   hjj 
+ * @Last Modified time: 2021-10-15 19:40:51 
+ */
+
+@charset "UTF-8";
+
+$themeColor: #409eff;
+
+@mixin ellipsis() {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

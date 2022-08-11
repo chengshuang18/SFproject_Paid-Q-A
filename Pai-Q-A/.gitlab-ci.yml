@@ -1,0 +1,92 @@
+image: registry.secoder.net/tool/deployer
+
+stages:
+  - test
+  - build
+  - deploy
+
+services:
+  - mysql:5.7
+  - redis:latest
+
+variables:
+  # Configure mysql service (https://hub.docker.com/_/mysql/)
+  MYSQL_DATABASE: mysql_for_unittest
+  MYSQL_ROOT_PASSWORD: 123456
+  ENV_MODE: test  # 给 Flask app 使用，标记环境
+  PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip  # 给 pip 使用，标记缓存目录
+
+# pip 安装使用缓存
+cache:
+  paths:  # 存放 pip 缓存的位置
+    - .cache/pip
+  key: $CI_PROJECT_ID  # 限制此缓存仅本项目使用
+
+
+connect_mysql:
+  stage: test
+  image: mysql:5.7
+  script:
+    - sleep 30
+    - echo "SELECT 'OK';" | mysql --user=root --password="$MYSQL_ROOT_PASSWORD" --host=mysql "$MYSQL_DATABASE"
+
+connect_redis:
+  # Connect to PostgreSQL database as user postgres, without password
+  image: redis
+  script:
+  - redis-cli -h redis PING
+
+
+unit_test:
+  stage: test
+  image: python:3.7.4
+  script:
+    - pip install -i https://pypi.douban.com/simple --upgrade pip
+    - pip install -i https://pypi.douban.com/simple  -r requirements_dev.txt
+    - echo "init mysql"
+    # - sh createDatabase.sh
+    - echo "start a unit test"
+    - coverage run --source ./ -m pytest --junit-xml=xunit-reports/xunit-result.xml
+    - ret=$?
+    - coverage xml -o coverage-reports/coverage.xml
+    - coverage report
+    - exit $ret
+  after_script:
+    - SUFFIX=$RANDOM
+    - curl "http://10.0.0.11/sonar-scanner.tar.gz" -s -o "/tmp/sonar-$SUFFIX.tar.gz"
+    - tar -xf "/tmp/sonar-$SUFFIX.tar.gz"  -C /opt
+    - /opt/sonar-scanner/bin/sonar-scanner
+
+
+style-test:
+  stage: test
+  image: python:3.7.4
+  # allow_failure: true
+
+  script:
+    - pip install -i https://pypi.douban.com/simple --upgrade pip
+    - pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements_dev.txt
+    - pycodestyle api tests
+    - PYCODESTYLE_RET=$?
+    - pylint api tests
+    - PYLINT_RET=$?
+    - if [ $PYCODESTYLE_RET \> 0 ]; then exit $PYCODESTYLE_RET; fi;
+    - exit $PYLINT_RET
+
+
+build:
+  stage: build
+  script:
+    - export BUILD_IMAGE_NAME=$CI_REGISTRY_IMAGE
+    - export BUILD_IMAGE_TAG=$CI_COMMIT_REF_SLUG
+    - export BUILD_IMAGE_USERNAME=$CI_REGISTRY_USER
+    - export BUILD_IMAGE_PASSWORD=$CI_REGISTRY_PASSWORD
+    - deployer build
+
+
+deploy:
+  stage: deploy
+  script:
+    - deployer dyno replace $CI_PROJECT_NAME "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" "$REGISTRY_USER" "$REGISTRY_PWD"
+  only:
+    - master
